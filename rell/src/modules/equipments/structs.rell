@@ -1,0 +1,9 @@
+struct token_dto {
+  project: text;
+  collection: text;
+  id: big_integer;
+  name: text;
+  description: text;
+  image: text;
+  slot: text;
+}

@@ -1,0 +1,28 @@
+operation equip(uid: byte_array) {
+  val account = ft4.auth.authenticate();
+  val token = require(
+    yours.get_token_by_uid(uid),
+    "Token not found %s".format(uid)
+  );
+  require(
+    yours.get_balance(token, account) > 0,
+    "Token balance is 0 %s".format(uid)
+  );
+  val pfp = require(
+    pfp @? { token },
+    "Token is not a PFP %s".format(uid)
+  );
+
+  // Delete potential previously equipped avatar
+  val current = equipped_pfp @? { account };
+  if (current != null) {
+    on_unequip(current.pfp);
+    delete current;
+  }
+
+  create equipped_pfp ( account, pfp );
+  on_equip(pfp);
+}
+
+@extend(ft4.auth.auth_handler)
+function () = ft4.auth.add_auth_handler(scope = rell.meta(equip).mount_name, flags = []);

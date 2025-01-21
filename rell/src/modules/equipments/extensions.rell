@@ -1,0 +1,92 @@
+@extend(pfps.on_unequip)
+function on_unequip(pfp: pfps.pfp) {
+  delete equipped_equipment @* { pfp };
+}
+
+@extend(yours.external.on_external_update)
+function on_external_create(token: yours.token, attributes: map<text, gtv>) {
+  if (token.collection.project.name != equipment_project or token.collection.name != equipment_collection) return;
+  _create_equipment(token, attributes);
+}
+
+@extend(yours.after_transfer)
+function on_transfer(token: yours.token, from: ft4.accounts.account, to: ft4.accounts.account, amount: big_integer) {
+  val equipment = equipment @? { token };
+  if (equipment != null) {
+    _unequip(from, equipment);
+  }
+}
+
+function _create_equipment(token: yours.token, attributes: map<text, gtv>) {
+  var equipment = equipment @? { token };
+  if (equipment == null) {
+    val slot_gtv = attributes.get_or_null("slot");
+    if (slot_gtv == null) return;
+    val slot = text.from_gtv(slot_gtv);
+
+    val description_gtv = attributes.get_or_null("description");
+    if (description_gtv == null) return;
+    val description = text.from_gtv(description_gtv);
+
+    val image_gtv = attributes.get_or_null("image");
+    if (image_gtv == null) return;
+    val image = text.from_gtv(image_gtv);
+
+    equipment = create equipment ( token, slot, description, image );
+  }
+}
+
+function _unequip(account: ft4.accounts.account, equipment) {
+  val pfp = pfps.get_equipped_pfp(account.id)?.pfp;
+  if (pfp == null) return;
+
+  val equipped = equipped_equipment @? { pfp, equipment };
+  if (equipped == null) return;
+
+  // Only unequip if out of balance
+  val balance = yours.get_balance(equipped.equipment.token, account);
+  if (balance >= 1) return;
+
+  delete equipped;
+}
+
+@extend(yours.populate_metadata)
+function populate_metadata(token: yours.token, modules: set<name>): map<text, gtv> {
+  val metadata = map<text, gtv>();
+  if (not modules.contains(module_name)) return metadata;
+
+  val equipment = equipment @? { token };
+  if (equipment == null) return metadata;
+
+  metadata.put("slot", equipment.slot.to_gtv());
+  metadata.put("description", equipment.description.to_gtv());
+  metadata.put("image", equipment.image.to_gtv());
+
+  return metadata;
+}
+
+@extend(yours.after_apply_transfer)
+function after_apply_transfer(token: yours.token, modules: set<name>, properties: map<text, gtv>) {
+  if (not modules.contains(module_name)) return;
+
+  val slot_gtv = properties.get_or_null("slot");
+  if (slot_gtv == null) return;
+  val slot = text.from_gtv(slot_gtv);
+
+  val weight_gtv = properties.get_or_null("weight");
+  if (weight_gtv == null) return;
+  val weight = integer.from_gtv(weight_gtv);
+
+  val image_gtv = properties.get_or_null("image");
+  if (image_gtv == null) return;
+  val image = text.from_gtv(image_gtv);
+
+  val description_gtv = properties.get_or_null("description");
+  if (description_gtv == null) return;
+  val description = text.from_gtv(description_gtv);
+
+  var equipment = equipment @? { token };
+  if (equipment == null) {
+    equipment = create equipment ( token, slot, description, image );
+  }
+}

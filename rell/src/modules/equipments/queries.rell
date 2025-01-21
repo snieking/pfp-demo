@@ -1,0 +1,35 @@
+query get_equipped(account_id: byte_array) {
+  val pfp = pfps.get_equipped_pfp(account_id)?.pfp;
+  if (pfp == null) return null;
+
+  return equipped_equipment @* { pfp } (
+    token_dto (
+      project = .equipment.token.collection.project.name,
+      collection = .equipment.token.collection.name,
+      id = .equipment.token.id,
+      name = .equipment.token.name,
+      description = .equipment.description,
+      image = .equipment.image,
+      slot = .slot
+    )
+  );
+}
+
+query get_all(account_id: byte_array, slot: text): list<token_dto> {
+  return (e: equipment, tb: yours.token_balance) @* {
+    e.token == tb.token,
+    tb.account.id == account_id,
+    tb.amount > 0,
+    (slot == "all" or .slot == slot)
+  } (
+    token_dto (
+      project = e.token.collection.project.name,
+      collection = e.token.collection.name,
+      id = e.token.id,
+      name = e.token.name,
+      description = e.description,
+      image = e.image,
+      slot = e.slot
+    )
+  );
+}

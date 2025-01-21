@@ -1,0 +1,217 @@
+@extend(receive_icmf_message)
+function _handle_message(sender: byte_array, topic: text, body: gtv) {
+  log("Handling message on topic %s:".format(topic), body);
+
+  val args = list<gtv>.from_gtv(body);
+  if (args.size() != 2) {
+    log("Invalid message on topic %s:".format(topic), body);
+    return;
+  }
+
+  val type = try_call(integer.from_gtv(args[0], *));
+  if (type == null) {
+    log("Invalid message on topic %s:".format(topic), body);
+    return;
+  }
+
+  val data = args[1];
+
+  when (type) {
+    0 -> {
+      log("Received mint message on topic %s:".format(topic), data);
+      val mint_msg = try_call(mint_message.from_gtv(data, *));
+      if (mint_msg != null) {
+        log("Handling mint message on topic %s:".format(topic), mint_msg);
+        _validate_event_topic(topic, mint_msg.chain, mint_msg.contract);
+        _handle_mint(sender, mint_msg);
+        return;
+      }
+    }
+    1 -> {
+      log("Received metadata updated message on topic %s:".format(topic), data);
+      val metadata_updated_msg = try_call(metadata_updated_message.from_gtv(data, *));
+      if (metadata_updated_msg != null) {
+        log("Handling metadata updated message on topic %s:".format(topic), metadata_updated_msg);
+        _validate_event_topic(topic, metadata_updated_msg.chain, metadata_updated_msg.contract);
+        _handle_metadata_updated(sender, metadata_updated_msg);
+        return;
+      }
+    }
+    2 -> {
+      log("Received transfer message on topic %s:".format(topic), data);
+      val transfer_msg = try_call(transfer_message.from_gtv(data, *));
+      if (transfer_msg != null) {
+        log("Handling transfer message on topic %s:".format(topic), transfer_msg);
+        _validate_event_topic(topic, transfer_msg.chain, transfer_msg.contract);
+        _handle_transfer(sender, transfer_msg);
+        return;
+      }
+    }
+  }
+}
+
+function _validate_event_topic(topic: text, chain: name, contract: byte_array) {
+  val expected_topic = "%s_%s_%s".format(EVENT_PREFIX, chain.lower_case(), contract.to_hex().lower_case());
+  require(topic == expected_topic, "Invalid event topic");
+}
+
+function _handle_transfer(sender: byte_array, msg: transfer_message) {
+  val from = _ensure_evm_account(msg.from);
+  val to = _ensure_evm_account(msg.to);
+  val token_data = require(
+    external_token @? {
+      .chain == msg.chain,
+      .contract == msg.contract,
+      .token.id == msg.token_id,
+      .owner == from
+    } ( external_token = $, .token ),
+    "Token not found"
+  );
+
+  require(token_data.external_token.amount >= msg.amount, "Insufficient balance to apply external transfer");
+  if (token_data.external_token.amount == msg.amount) {
+    token_data.external_token.owner = to;
+  } else {
+    token_data.external_token.amount -= msg.amount;
+    create external_token ( token_data.token, msg.chain, msg.contract, to, msg.amount );
+  }
+
+  require(token_data.token.collection.project.blockchain_rid == sender, "Sending chain isn't the owner of the token");
+}
+
+function _handle_metadata_updated(sender: byte_array, msg: metadata_updated_message) {
+  val token = require(external_token @? { .chain == msg.chain, .contract == msg.contract, .token.id == msg.token_id } ( .token ), "Token not found");
+
+  val attributes = yours._json_to_gtv_map(msg.metadata);
+  val name = try_call(text.from_gtv(attributes.get("name"), *));
+  if (name != null and token.name != name) token.name = name;
+  yours._import_attributes(token, attributes);
+  on_external_update(token, attributes);
+}
+
+function _handle_mint(sender: byte_array, msg: mint_message) {
+  if (external_token @? { .chain == msg.chain, .contract == msg.contract, .token.id == msg.token_id } != null) return;
+
+  val spec = yours.token_info(
+    project = yours.project_info(msg.project, sender),
+    collection = msg.collection,
+    type = yours.token_type.yours,
+    name = "TBD",
+    modules = [MODULE_NAME]
+  );
+
+  var token = external_token @? { .chain == msg.chain, .contract == msg.contract, .token.id == msg.token_id } ( .token );
+  if (token == null) {
+    token = yours.create_token_with_id(spec, msg.token_id);
+  }
+
+  val account = _ensure_evm_account(msg.to);
+
+  _attach(token, msg.chain, msg.contract, account, msg.amount);
+}
+
+function _parse_other_attributes(metadata: map<text, gtv>): map<text, gtv> {
+  metadata.remove_or_null("attributes");
+  metadata.remove_or_null("properties");
+  return metadata;
+}
+
+function _parse_attributes(metadata: map<text, gtv>): map<text, gtv> {
+  val attributes = metadata.get_or_null("attributes");
+  if (attributes != null) {
+    val attributes_list = try_call(list<gtv>.from_gtv(attributes, *));
+    if (attributes_list != null) {
+      val map = map<text, gtv>();
+      for (attribute in attributes_list) {
+        val attribute_map = map<text, gtv>.from_gtv(attribute);
+        val trait_type = attribute_map.get_or_null("trait_type");
+        val trait_value = attribute_map.get_or_null("value");
+        if (trait_type != null and trait_value != null) {
+          map.put(text.from_gtv(trait_type), trait_value);
+        }
+      }
+      return map;
+    }
+
+    val attributes_map = try_call(map<text, gtv>.from_gtv(attributes, *));
+    if (attributes_map != null) {
+      return attributes_map;
+    }
+  }
+
+  val properties = metadata.get_or_null("properties");
+  if (properties != null) {
+    val properties_list = try_call(list<gtv>.from_gtv(properties, *));
+    if (properties_list != null) {
+      val map = map<text, gtv>();
+      for (property in properties_list) {
+        val property_map = map<text, gtv>.from_gtv(property);
+        val trait_type = property_map.get_or_null("trait_type");
+        val trait_value = property_map.get_or_null("value");
+        if (trait_type != null and trait_value != null) {
+          map.put(text.from_gtv(trait_type), trait_value);
+        }
+      }
+      return map;
+    }
+  }
+
+  return map<text, gtv>();
+}
+
+function _attach(
+  token: yours.token,
+  chain: name,
+  contract: byte_array,
+  owner: ft4.accounts.account,
+  amount: big_integer
+) {
+  log("Attaching %s to %s with amount %s".format(token.id, owner.id, amount));
+  yours.attach_module(token, MODULE_NAME);
+  val existing_token = external_token @? { token, owner };
+  if (existing_token != null) {
+    existing_token.amount += amount;
+  } else {
+    create external_token ( token, chain, contract, owner, amount );
+  }
+}
+
+function _ensure_evm_account(evm_address: byte_array) {
+  var account = ft4.accounts.auth_descriptor_signer @? { .id == evm_address } ( .account_auth_descriptor.account ) limit 1;
+  if (account != null) return account;
+
+  account = create ft4.accounts.account ( evm_address, ft4.accounts.ACCOUNT_TYPE_USER );
+
+  // Prepare auth descriptor
+  val args = ft4.accounts.single_sig_args(flags = set(ft4.accounts.get_auth_flags_config().mandatory), signer = evm_address);
+  val auth_descriptor = create ft4.accounts.account_auth_descriptor (
+    id = evm_address,
+    account,
+    auth_type = ft4.accounts.auth_type.S,
+    args = args.to_gtv().to_bytes(),
+    rules = ft4.accounts.GTV_NULL.to_bytes(),
+    ctr = 0,
+    created = op_context.last_block_time
+  );
+
+  // Create signers for the main auth descriptor
+  val main_ad_signers = _get_signers(auth_descriptor);
+  for (signer in main_ad_signers) {
+    create ft4.accounts.auth_descriptor_signer ( auth_descriptor, signer );
+  }
+
+  // Create main auth descriptor
+  create ft4.accounts.main_auth_descriptor ( account, auth_descriptor );
+
+  // Create misc account data
+  ft4.accounts.create_rate_limiter_state_for_account(account);
+
+  return account;
+}
+
+function _get_signers(auth_descriptor: ft4.accounts.account_auth_descriptor) {
+  return when (auth_descriptor.auth_type) {
+    S -> [ft4.accounts.single_sig_args.from_bytes(auth_descriptor.args).signer];
+    M -> ft4.accounts.multi_sig_args.from_bytes(auth_descriptor.args).signers;
+  };
+}

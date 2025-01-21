@@ -1,0 +1,15 @@
+entity pfp {
+  key yours.token;
+  description: text;
+  image: text;
+}
+
+entity model {
+  key pfp;
+  url: text;
+}
+
+entity equipped_pfp {
+  key ft4.accounts.account;
+  index pfp;
+}

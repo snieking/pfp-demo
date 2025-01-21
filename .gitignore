@@ -1,0 +1,5 @@
+node_modules
+.chromia
+.next
+.env
+build

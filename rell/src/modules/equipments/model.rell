@@ -1,0 +1,11 @@
+entity equipment {
+  key yours.token;
+  index slot: text;
+  image: text;
+  description: text;
+}
+
+entity equipped_equipment {
+  key pfps.pfp, slot: text;
+  index equipment;
+}
