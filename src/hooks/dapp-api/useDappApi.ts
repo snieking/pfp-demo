@@ -56,6 +56,7 @@ export function useAllPfps() {
 
 export function useAttachModel() {
   const { chromiaSession, chromiaClient } = useChromia();
+  const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async ({ token, modelUrl }: { token: Pfp, modelUrl: string }) => {
@@ -68,6 +69,9 @@ export function useAttachModel() {
         modelUrl,
       ), { authenticator: noopAuthenticator })
       .buildAndSend();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['all_pfps'] });
     }
   })
 }

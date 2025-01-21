@@ -19,7 +19,7 @@ export function PfpCard(token: Pfp) {
   const [modelError, setModelError] = useState(false);
   const [showModel, setShowModel] = useState(true);
   const { progress, setProgress } = useUploadProgress();
-  const { megahubSession } = useMegahub();
+  const { megahubSession, disconnectFromMegahub } = useMegahub();
   const { mutate: attachModel } = useAttachModel();
 
   const prepareFileUrl = (fsFile: FsFile) => {
@@ -59,7 +59,9 @@ export function PfpCard(token: Pfp) {
       await filehub.storeFile(megahubSession, fsFile);
       const url = prepareFileUrl(fsFile);
       attachModel({ token, modelUrl: url });
+      
       setShowUploadModal(false);
+      disconnectFromMegahub();
     } catch (error) {
       console.error("Failed to handle file:", error);
       setProgress({ progress: 0, isComplete: false });
