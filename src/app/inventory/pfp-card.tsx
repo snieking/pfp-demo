@@ -30,7 +30,7 @@ export function PfpCard(token: Pfp) {
       
       // Validate file type
       if (!file.name.toLowerCase().endsWith('.fbx')) {
-        throw new Error("Please upload an FBX file");
+        throw new Error("Please upload a valid FBX file");
       }
 
       const filehub = new Filehub(megahubConfig as FilehubSettings);
