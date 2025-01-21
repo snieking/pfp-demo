@@ -17,6 +17,7 @@ import { ChromiaProvider } from "@/lib/chromia-connect/chromia-context";
 import { env } from "@/env";
 import { ChromiaConfig } from "@/lib/chromia-connect/types";
 import { MegahubProvider } from "@/lib/megahub-connect/megahub-context";
+import { UploadProgressProvider } from "@/lib/upload/upload-progress-context";
 
 
 const makeQueryClient = (): QueryClient =>
@@ -112,22 +113,24 @@ export const ClientProviders: React.FunctionComponent<
   const queryClient = getQueryClient();
 
   return (
-    <WagmiProvider config={wagmiConfig} initialState={initialState}>
-      <QueryClientProvider client={queryClient}>
-        <ConnectKitProvider 
-          options={{
-            enforceSupportedChains: true,
-            initialChainId: wagmiConfig.chains[0].id,
-            overlayBlur: 0,
-          }}
-        >
-          <ChromiaProvider config={chromiaConfig}>
-            <MegahubProvider config={megahubConfig}>
-              {children}
-            </MegahubProvider>
-          </ChromiaProvider>
-        </ConnectKitProvider>
-      </QueryClientProvider>
-    </WagmiProvider>
+    <UploadProgressProvider>
+      <WagmiProvider config={wagmiConfig} initialState={initialState}>
+        <QueryClientProvider client={queryClient}>
+          <ConnectKitProvider 
+            options={{
+              enforceSupportedChains: true,
+              initialChainId: wagmiConfig.chains[0].id,
+              overlayBlur: 0,
+            }}
+          >
+            <ChromiaProvider config={chromiaConfig}>
+              <MegahubProvider config={megahubConfig}>
+                {children}
+              </MegahubProvider>
+            </ChromiaProvider>
+          </ConnectKitProvider>
+        </QueryClientProvider>
+      </WagmiProvider>
+    </UploadProgressProvider>
   );
 };

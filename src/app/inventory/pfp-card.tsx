@@ -7,14 +7,18 @@ import { Pfp } from "@/hooks/dapp-api/types";
 import { useAttachModel } from "@/hooks/dapp-api/useDappApi";
 import { FileUploadModal } from "@/components/upload/file-upload-modal";
 import { useMegahub } from "@/lib/megahub-connect/megahub-context";
-import { Filehub, FilehubSettings, FsFile } from "filehub";
+import { Filehub, FilehubSettings, FsFile, IChunkLocation } from "filehub";
 import { megahubConfig } from "../client-providers";
 import { env } from "@/env";
 import { ModelViewer } from "@/components/3d/model-viewer";
+import { useUploadProgress } from "@/lib/upload/upload-progress-context";
+import { clamp } from "three/src/math/MathUtils.js";
 
 export function PfpCard(token: Pfp) {
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [modelError, setModelError] = useState(false);
+  const [showModel, setShowModel] = useState(true);
+  const { progress, setProgress } = useUploadProgress();
   const { megahubSession } = useMegahub();
   const { mutate: attachModel } = useAttachModel();
 
@@ -28,12 +32,27 @@ export function PfpCard(token: Pfp) {
         throw new Error("No Megahub session found");
       }
       
-      // Validate file type
-      if (!file.name.toLowerCase().endsWith('.fbx')) {
-        throw new Error("Please upload a valid FBX file");
+      if (!file.name.toLowerCase().endsWith('.glb')) {
+        throw new Error("Please upload a valid GLB file");
       }
 
       const filehub = new Filehub(megahubConfig as FilehubSettings);
+
+      filehub.on('onProgress', async (progress: number, status: string) => {
+        setProgress({
+          progress: clamp(progress, 0, 100),
+          isComplete: progress >= 100
+        });
+      });
+
+      filehub.on('onFileStored', async (fileHash: Buffer) => {
+        setProgress({
+          fileHash: fileHash.toString('hex'),
+          progress: 100,
+          isComplete: true
+        });
+      });
+
       const fileBuffer = await file.arrayBuffer();
       const fileData = Buffer.from(fileBuffer);
       const fsFile = FsFile.fromData(fileData, { "Content-Type": "application/octet-stream" });
@@ -43,13 +62,14 @@ export function PfpCard(token: Pfp) {
       setShowUploadModal(false);
     } catch (error) {
       console.error("Failed to handle file:", error);
+      setProgress({ progress: 0, isComplete: false });
     }
   };
 
   return (
     <div className="bg-slate-800/50 rounded-xl overflow-hidden border border-blue-900/30 hover:border-blue-500/30 transition-colors">
       <div className="relative aspect-square">
-        {token.model && !modelError ? (
+        {token.model && !modelError && showModel ? (
           <div className="w-full h-full" style={{ minHeight: "300px" }}>
             <ModelViewer url={token.model} />
           </div>
@@ -60,6 +80,20 @@ export function PfpCard(token: Pfp) {
             fill
             className="object-cover"
           />
+        )}
+        {token.model && !modelError && (
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setShowModel(!showModel)}
+            className="absolute top-2 right-2 bg-black/20 hover:bg-black/40 backdrop-blur-sm"
+          >
+            {showModel ? (
+              <Image className="w-4 h-4" src={token.image} alt="Show 2D" width={16} height={16} />
+            ) : (
+              <div className="w-4 h-4">3D</div>
+            )}
+          </Button>
         )}
       </div>
       
@@ -106,8 +140,12 @@ export function PfpCard(token: Pfp) {
 
       {showUploadModal && (
         <FileUploadModal
-          onClose={() => setShowUploadModal(false)}
+          onClose={() => {
+            setShowUploadModal(false);
+            setProgress({ progress: 0, isComplete: false });
+          }}
           onFileSelected={handleFileSelected}
+          progress={progress}
         />
       )}
 

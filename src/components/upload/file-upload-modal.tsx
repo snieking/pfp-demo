@@ -8,9 +8,10 @@ import { useMegahub } from "@/lib/megahub-connect/megahub-context";
 interface FileUploadModalProps {
   onClose: () => void;
   onFileSelected: (file: File) => void;
+  progress?: { progress: number; isComplete: boolean };
 }
 
-export function FileUploadModal({ onClose, onFileSelected }: FileUploadModalProps) {
+export function FileUploadModal({ onClose, onFileSelected, progress }: FileUploadModalProps) {
   const [isDragging, setIsDragging] = useState(false);
   const { authStatus, connectToMegahub } = useMegahub();
   
@@ -67,40 +68,56 @@ export function FileUploadModal({ onClose, onFileSelected }: FileUploadModalProp
             </Button>
           </div>
         ) : (
-          <div
-            className={`
-              border-2 border-dashed rounded-lg p-8
-              ${isDragging ? 'border-blue-400 bg-blue-500/10' : 'border-blue-800'}
-              transition-colors duration-200
-              flex flex-col items-center justify-center
-              min-h-[200px]
-            `}
-            onDragOver={handleDragOver}
-            onDragLeave={handleDragLeave}
-            onDrop={handleDrop}
-          >
-            <input
-              type="file"
-              onChange={handleFileInput}
-              className="hidden"
-              id="file-upload"
-            />
-            <label
-              htmlFor="file-upload"
-              className="cursor-pointer text-center space-y-2"
-            >
-              <p className="text-blue-100 font-medium">
-                {isDragging ? 'Drop your file here' : 'Drag & drop your file here'}
-              </p>
-              <p className="text-blue-300 text-sm">or</p>
-              <Button 
-                type="button"
-                className="bg-blue-500 hover:bg-blue-600"
+          <>
+            {progress && progress.progress > 0 ? (
+              <div className="space-y-2">
+                <div className="h-2 bg-slate-700 rounded-full overflow-hidden">
+                  <div 
+                    className="h-full bg-blue-500 transition-all duration-300"
+                    style={{ width: `${progress.progress}%` }}
+                  />
+                </div>
+                <p className="text-sm text-blue-200 text-center">
+                  {progress.isComplete ? 'Upload complete!' : `Uploading... ${Math.round(progress.progress)}%`}
+                </p>
+              </div>
+            ) : (
+              <div
+                className={`
+                  border-2 border-dashed rounded-lg p-8
+                  ${isDragging ? 'border-blue-400 bg-blue-500/10' : 'border-blue-800'}
+                  transition-colors duration-200
+                  flex flex-col items-center justify-center
+                  min-h-[200px]
+                `}
+                onDragOver={handleDragOver}
+                onDragLeave={handleDragLeave}
+                onDrop={handleDrop}
               >
-                Browse Files
-              </Button>
-            </label>
-          </div>
+                <input
+                  type="file"
+                  onChange={handleFileInput}
+                  className="hidden"
+                  id="file-upload"
+                />
+                <label
+                  htmlFor="file-upload"
+                  className="cursor-pointer text-center space-y-2"
+                >
+                  <p className="text-blue-100 font-medium">
+                    {isDragging ? 'Drop your file here' : 'Drag & drop your file here'}
+                  </p>
+                  <p className="text-blue-300 text-sm">or</p>
+                  <Button 
+                    type="button"
+                    className="bg-blue-500 hover:bg-blue-600"
+                  >
+                    Browse Files
+                  </Button>
+                </label>
+              </div>
+            )}
+          </>
         )}
       </div>
     </div>
