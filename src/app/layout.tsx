@@ -5,8 +5,8 @@ import "./globals.css";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata = {
-  title: "Crypto Fishing Game",
-  description: "A Web3 Fishing Game built on Chromia",
+  title: "PFP Demo",
+  description: "A demo of rich PFP NFTs",
 };
 
 export default function RootLayout({
