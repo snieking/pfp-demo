@@ -23,7 +23,7 @@ export default function Home() {
             PFP Demo
           </h1>
           <p className="text-2xl text-blue-200">
-            Connect your wallet to start your adventure in the blockchain ocean!
+            Connect your wallet to begin
           </p>
         </div>
         <div className="flex justify-center">
