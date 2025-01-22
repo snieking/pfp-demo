@@ -21,7 +21,7 @@ export function useEquippedPfp() {
       console.log(`equipped for account ${chromiaSession.account.id.toString('hex')}:`, pfp);
 
       if (!pfp) return null;
-      
+
       return {
         ...pfp,
         image: convertIpfsToGatewayUrl(pfp.image)
@@ -44,7 +44,7 @@ export function useAllPfps() {
       const avatars = await chromiaSession.query<Pfp[]>('pfps.get_all', {
         account_id: chromiaSession.account.id,
       });
-      
+
       return avatars.map(avatar => ({
         ...avatar,
         image: convertIpfsToGatewayUrl(avatar.image)
@@ -64,11 +64,13 @@ export function useAttachModel() {
         throw new Error('Not connected to Chromia');
       }
 
-      await chromiaSession.transactionBuilder().add(op('pfps.attach_model', 
-        token.uid,
-        modelUrl,
-      ), { authenticator: noopAuthenticator })
-      .buildAndSend();
+      await chromiaSession.transactionBuilder()
+        .add(op('pfps.attach_model',
+          token.uid,
+          modelUrl,
+        ), { authenticator: noopAuthenticator })
+        .add(nop())
+        .buildAndSend();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['all_pfps'] });
@@ -89,7 +91,7 @@ export function useAllFishingRods() {
       const rods = await chromiaSession.query<Pfp[]>('fishing.get_rods', {
         account_id: chromiaSession.account.id,
       });
-      
+
       return rods.map(rod => ({
         ...rod,
         image: convertIpfsToGatewayUrl(rod.image)
@@ -131,7 +133,7 @@ export function useEquipments(slot: string = 'all') {
         account_id: chromiaSession.account.id,
         slot
       });
-      
+
       return armor.map(piece => ({
         ...piece,
         image: convertIpfsToGatewayUrl(piece.image)
@@ -154,7 +156,7 @@ export function useWeapons() {
       const weapons = await chromiaSession.query<Weapon[]>('equipments.get_weapon', {
         account_id: chromiaSession.account.id
       });
-      
+
       return weapons.map(weapon => ({
         ...weapon,
         image: convertIpfsToGatewayUrl(weapon.image)

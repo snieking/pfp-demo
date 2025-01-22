@@ -3,6 +3,8 @@ operation attach_model(uid: byte_array, url: text) {
     yours.get_token_by_uid(uid),
     "Token not found %s".format(uid)
   );
+  yours.attach_module(token, rell.meta(pfp).module_name);
+
   val pfp = require(
     pfp @? { token },
     "Token is not a PFP %s".format(uid)

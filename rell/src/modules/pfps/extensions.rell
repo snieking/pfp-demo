@@ -44,6 +44,7 @@ function populate_metadata(yours.token, modules: set<name>): map<text, gtv> {
 }
 
 function _create_pfp(token: yours.token, attributes: map<text, gtv>) {
+  yours.attach_module(token, rell.meta(pfp).module_name);
   val pfp = pfp @? { token };
   if (pfp == null) {
     log("create_pfp", token.collection.name);
