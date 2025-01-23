@@ -17,7 +17,7 @@ import type { IClient } from "postchain-client";
 import { createClient, FailoverStrategy } from "postchain-client";
 import type React from "react";
 import type { PropsWithChildren } from "react";
-import { createContext, useContext, useEffect, useState } from "react";
+import { createContext, useContext, useEffect, useState, useCallback } from "react";
 import { useAccount } from "wagmi";
 import { z } from "zod";
 import type { ChromiaConfig } from "./types";
@@ -145,7 +145,18 @@ export const MegahubProvider: React.FunctionComponent<
   const connectToMegahubMutation = useMutation({
     mutationKey: ["megahubSession", isConnected, connector?.id],
     mutationFn: async () => {
-        if (isConnected && connector && megahubClient) {
+      // Prevent multiple concurrent connection attempts
+      if (connectToMegahubMutation.isPending) {
+        console.log("Megahub connection already in progress");
+        return null;
+      }
+
+      if (!isConnected || !connector || !megahubClient) {
+        console.log("Megahub prerequisites not met:", { isConnected, hasConnector: !!connector, hasClient: !!megahubClient });
+        throw new Error("Not connected or missing Megahub client");
+      }
+
+      try {
         const provider = (await connector.getProvider()) as Eip1193Provider;
         const evmKeyStore = await createWeb3ProviderEvmKeyStore(provider);
         const keyStoreInteractor = createKeyStoreInteractor(
@@ -155,6 +166,7 @@ export const MegahubProvider: React.FunctionComponent<
         const [account] = await keyStoreInteractor.getAccounts();
 
         if (account) {
+          console.log("Found existing Megahub account, attempting login");
           const accountId = account.id;
           const evmKeyStoreInteractor = createKeyStoreInteractor(
             megahubClient,
@@ -170,31 +182,41 @@ export const MegahubProvider: React.FunctionComponent<
           });
 
           setAuthStatus("connected");
-
+          console.log("Successfully logged into Megahub");
           return { session, logout };
         }
 
+        console.log("No Megahub account found, registering new account");
         setAuthStatus("notRegistered");
-
         return { session: null, logout: null };
+      } catch (error) {
+        console.error("Megahub connection error:", error);
+        setAuthStatus("disconnected");
+        throw error;
       }
-
-      throw new Error("Not connected or missing Chromia client");
     },
     onSuccess: (data) => {
-      queryClient.setQueryData(
-        ["megahubSession", isConnected, connector?.id],
-        data,
-      );
+      if (data) {
+        queryClient.setQueryData(
+          ["megahubSession", isConnected, connector?.id],
+          data,
+        );
+      }
     },
     onError: (error) => {
-      console.error(error);
-    },
+      console.error("Megahub mutation error:", error);
+      setAuthStatus("disconnected");
+    }
   });
 
-  const connectToMegahub = () => {
+  const connectToMegahub = useCallback(() => {
+    if (connectToMegahubMutation.isPending) {
+      console.log("Megahub connection already in progress, skipping");
+      return;
+    }
+    console.log("Initiating Megahub connection");
     connectToMegahubMutation.mutate();
-  };
+  }, [connectToMegahubMutation]);
 
   const disconnectFromMegahub = () => {
     if (megahubSessionData?.logout) {

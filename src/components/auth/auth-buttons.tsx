@@ -46,7 +46,7 @@ const User = ({ username, onLogout, isHeader }: {
 );
 
 export function AuthButtons({ isHeader = false }: { isHeader?: boolean }) {
-  const { authStatus, handleConnect, handleAuthenticate, handleLogout } = useAuth();
+  const { authStatus, handleConnect, handleAuthenticate, handleLogout, isLoading } = useAuth();
   const router = useRouter();
 
   const onLogout = () => {
@@ -62,15 +62,26 @@ export function AuthButtons({ isHeader = false }: { isHeader?: boolean }) {
             <Button
               className={cn(
                 mainButtonStyles, 
-                "flex items-center space-x-4"
+                "flex items-center space-x-4",
+                isLoading && "opacity-80"
               )}
               onClick={() => {
                 handleConnect();
                 show?.();
               }}
+              disabled={isLoading}
             >
-              <Fish className={isHeader ? "w-6 h-6" : "w-12 h-12"} />
-              <span>Connect Wallet</span>
+              {isLoading ? (
+                <div className="flex items-center space-x-4">
+                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white" />
+                  <span>Connecting...</span>
+                </div>
+              ) : (
+                <>
+                  <Fish className={isHeader ? "w-6 h-6" : "w-12 h-12"} />
+                  <span>Connect Wallet</span>
+                </>
+              )}
             </Button>
           );
         }
@@ -99,7 +110,7 @@ export function AuthButtons({ isHeader = false }: { isHeader?: boolean }) {
                     href="mailto:support@example.com" 
                     className="underline hover:text-blue-300"
                   >
-                    support@example.com
+                    viktor.plane@megayours.com
                   </a>
                 </p>
               </div>
@@ -107,12 +118,23 @@ export function AuthButtons({ isHeader = false }: { isHeader?: boolean }) {
               <Button
                 className={cn(
                   mainButtonStyles, 
-                  "flex items-center space-x-4"
+                  "flex items-center space-x-4",
+                  isLoading && "opacity-80"
                 )}
                 onClick={handleAuthenticate}
+                disabled={isLoading}
               >
-                <Fish className={isHeader ? "w-6 h-6" : "w-12 h-12"} />
-                <span>Authenticate</span>
+                {isLoading ? (
+                  <div className="flex items-center space-x-4">
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white" />
+                    <span>Authenticating...</span>
+                  </div>
+                ) : (
+                  <>
+                    <Fish className={isHeader ? "w-6 h-6" : "w-12 h-12"} />
+                    <span>Authenticate</span>
+                  </>
+                )}
               </Button>
             )}
             <div className="flex items-center gap-4">

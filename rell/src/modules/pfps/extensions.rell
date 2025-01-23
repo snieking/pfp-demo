@@ -30,7 +30,7 @@ function on_transfer(token: yours.token, from: ft4.accounts.account, to: ft4.acc
 @extend(yours.populate_metadata)
 function populate_metadata(yours.token, modules: set<name>): map<text, gtv> {
   val metadata = map<text, gtv>();
-  if (not modules.contains(rell.meta(pfp).module_name)) return metadata;
+  if (not modules.contains("pfps")) return metadata;
 
   val pfp = pfp @? { token };
   if (pfp == null) return metadata;

@@ -17,7 +17,7 @@ import type { IClient } from "postchain-client";
 import { createClient, FailoverStrategy } from "postchain-client";
 import type React from "react";
 import type { PropsWithChildren } from "react";
-import { createContext, useContext, useEffect, useState } from "react";
+import { createContext, useContext, useEffect, useState, useCallback } from "react";
 import { useAccount } from "wagmi";
 import { z } from "zod";
 import type { ChromiaConfig } from "./types";
@@ -145,7 +145,18 @@ export const ChromiaProvider: React.FunctionComponent<
   const connectToChromiaMutation = useMutation({
     mutationKey: ["chromiaSession", isConnected, connector?.id],
     mutationFn: async () => {
-      if (isConnected && connector && chromiaClient) {
+      // Prevent multiple concurrent connection attempts
+      if (connectToChromiaMutation.isPending) {
+        console.log("Connection already in progress");
+        return null;
+      }
+
+      if (!isConnected || !connector || !chromiaClient) {
+        console.log("Prerequisites not met:", { isConnected, hasConnector: !!connector, hasClient: !!chromiaClient });
+        throw new Error("Not connected or missing Chromia client");
+      }
+
+      try {
         const provider = (await connector.getProvider()) as Eip1193Provider;
         const evmKeyStore = await createWeb3ProviderEvmKeyStore(provider);
         const keyStoreInteractor = createKeyStoreInteractor(
@@ -155,6 +166,7 @@ export const ChromiaProvider: React.FunctionComponent<
         const [account] = await keyStoreInteractor.getAccounts();
 
         if (account) {
+          console.log("Found existing account, attempting login");
           const accountId = account.id;
           const evmKeyStoreInteractor = createKeyStoreInteractor(
             chromiaClient,
@@ -170,31 +182,41 @@ export const ChromiaProvider: React.FunctionComponent<
           });
 
           setAuthStatus("connected");
-
+          console.log("Successfully logged in");
           return { session, logout };
         }
 
+        console.log("No account found, registering new account");
         setAuthStatus("notRegistered");
-
         return { session: null, logout: null };
+      } catch (error) {
+        console.error("Connection error:", error);
+        setAuthStatus("disconnected");
+        throw error;
       }
-
-      throw new Error("Not connected or missing Chromia client");
     },
     onSuccess: (data) => {
-      queryClient.setQueryData(
-        ["chromiaSession", isConnected, connector?.id],
-        data,
-      );
+      if (data) {
+        queryClient.setQueryData(
+          ["chromiaSession", isConnected, connector?.id],
+          data,
+        );
+      }
     },
     onError: (error) => {
-      console.error(error);
-    },
+      console.error("Mutation error:", error);
+      setAuthStatus("disconnected");
+    }
   });
 
-  const connectToChromia = () => {
+  const connectToChromia = useCallback(() => {
+    if (connectToChromiaMutation.isPending) {
+      console.log("Connection already in progress, skipping");
+      return;
+    }
+    console.log("Initiating Chromia connection");
     connectToChromiaMutation.mutate();
-  };
+  }, [connectToChromiaMutation]);
 
   const disconnectFromChromia = () => {
     if (chromiaSessionData?.logout) {

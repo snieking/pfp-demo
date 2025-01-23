@@ -4,6 +4,7 @@ import { useState, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Cross2Icon } from "@radix-ui/react-icons";
 import { useMegahub } from "@/lib/megahub-connect/megahub-context";
+import { cn } from "@/lib/utils";
 
 interface FileUploadModalProps {
   onClose: () => void;
@@ -13,7 +14,7 @@ interface FileUploadModalProps {
 
 export function FileUploadModal({ onClose, onFileSelected, progress }: FileUploadModalProps) {
   const [isDragging, setIsDragging] = useState(false);
-  const { authStatus, connectToMegahub } = useMegahub();
+  const { authStatus, connectToMegahub, isLoading } = useMegahub();
   
   const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -59,12 +60,23 @@ export function FileUploadModal({ onClose, onFileSelected, progress }: FileUploa
 
         {authStatus !== "connected" ? (
           <div className="space-y-4">
-            <p className="text-blue-200">Please authenticate with Megahub chain to upload files</p>
+            <p className="text-blue-200">Please authenticate towards Megahub chain</p>
             <Button 
               onClick={connectToMegahub}
-              className="w-full bg-blue-500 hover:bg-blue-600"
+              className={cn(
+                "w-full bg-blue-500 hover:bg-blue-600",
+                isLoading && "opacity-80"
+              )}
+              disabled={isLoading}
             >
-              Authenticate with Megahub
+              {isLoading ? (
+                <div className="flex items-center justify-center space-x-2">
+                  <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white" />
+                  <span>Authenticating...</span>
+                </div>
+              ) : (
+                "Authenticate with Megahub"
+              )}
             </Button>
           </div>
         ) : (
@@ -99,11 +111,9 @@ export function FileUploadModal({ onClose, onFileSelected, progress }: FileUploa
                   onChange={handleFileInput}
                   className="hidden"
                   id="file-upload"
+                  accept=".glb"
                 />
-                <label
-                  htmlFor="file-upload"
-                  className="cursor-pointer text-center space-y-2"
-                >
+                <div className="cursor-pointer text-center space-y-2">
                   <p className="text-blue-100 font-medium">
                     {isDragging ? 'Drop your file here' : 'Drag & drop your file here'}
                   </p>
@@ -111,10 +121,11 @@ export function FileUploadModal({ onClose, onFileSelected, progress }: FileUploa
                   <Button 
                     type="button"
                     className="bg-blue-500 hover:bg-blue-600"
+                    onClick={() => document.getElementById('file-upload')?.click()}
                   >
                     Browse Files
                   </Button>
-                </label>
+                </div>
               </div>
             )}
           </>
