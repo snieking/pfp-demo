@@ -4,8 +4,10 @@ import { createContext, useContext, useState } from 'react';
 
 interface UploadProgress {
   fileHash?: string;
+  fileName?: string;
   progress: number;
   isComplete: boolean;
+  status?: 'preparing' | 'uploading' | 'complete';
 }
 
 interface UploadProgressContextType {

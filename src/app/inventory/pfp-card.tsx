@@ -36,32 +36,63 @@ export function PfpCard(token: Pfp) {
         throw new Error("Please upload a valid GLB file");
       }
 
+      setProgress({
+        progress: 0,
+        isComplete: false,
+        fileName: file.name,
+        status: 'preparing'
+      });
+
       const filehub = new Filehub(megahubConfig as FilehubSettings);
 
       filehub.on('onProgress', async (progress: number, status: string) => {
         setProgress({
+          fileHash: fsFile.hash.toString('hex'),
+          fileName: file.name,
           progress: clamp(progress, 0, 100),
-          isComplete: progress >= 100
+          isComplete: progress >= 100,
+          status: 'uploading'
         });
       });
 
       filehub.on('onFileStored', async (fileHash: Buffer) => {
         setProgress({
           fileHash: fileHash.toString('hex'),
+          fileName: file.name,
           progress: 100,
-          isComplete: true
+          isComplete: true,
+          status: 'complete'
         });
       });
 
+      // Prepare the file
       const fileBuffer = await file.arrayBuffer();
       const fileData = Buffer.from(fileBuffer);
       const fsFile = FsFile.fromData(fileData, { "Content-Type": "application/octet-stream" });
+
+      setProgress({
+        fileHash: fsFile.hash.toString('hex'),
+        fileName: file.name,
+        progress: 0,
+        isComplete: false,
+        status: 'uploading'
+      });
       await filehub.storeFile(megahubSession, fsFile);
-      const url = prepareFileUrl(fsFile);
-      attachModel({ token, modelUrl: url });
       
+      const url = prepareFileUrl(fsFile);
+      
+      await new Promise(resolve => setTimeout(resolve, 1500));
+      
+      attachModel({ token, modelUrl: url });
       setShowUploadModal(false);
       disconnectFromMegahub();
+
+      setProgress({
+        fileHash: undefined,
+        fileName: undefined,
+        progress: 0,
+        isComplete: false
+      });
     } catch (error) {
       console.error("Failed to handle file:", error);
       setProgress({ progress: 0, isComplete: false });
@@ -144,7 +175,12 @@ export function PfpCard(token: Pfp) {
         <FileUploadModal
           onClose={() => {
             setShowUploadModal(false);
-            setProgress({ progress: 0, isComplete: false });
+            setProgress({
+              progress: 0,
+              isComplete: false,
+              fileHash: undefined,
+              fileName: undefined
+            });
           }}
           onFileSelected={handleFileSelected}
           progress={progress}

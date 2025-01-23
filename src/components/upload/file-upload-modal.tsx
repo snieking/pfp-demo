@@ -9,7 +9,7 @@ import { cn } from "@/lib/utils";
 interface FileUploadModalProps {
   onClose: () => void;
   onFileSelected: (file: File) => void;
-  progress?: { progress: number; isComplete: boolean };
+  progress?: { progress: number; isComplete: boolean; fileName?: string; status?: string };
 }
 
 export function FileUploadModal({ onClose, onFileSelected, progress }: FileUploadModalProps) {
@@ -81,17 +81,35 @@ export function FileUploadModal({ onClose, onFileSelected, progress }: FileUploa
           </div>
         ) : (
           <>
-            {progress && progress.progress > 0 ? (
+            {progress && progress.status ? (
               <div className="space-y-2">
                 <div className="h-2 bg-slate-700 rounded-full overflow-hidden">
                   <div 
-                    className="h-full bg-blue-500 transition-all duration-300"
+                    className={cn(
+                      "h-full transition-all duration-300",
+                      progress.isComplete ? "bg-emerald-500" : "bg-blue-500"
+                    )}
                     style={{ width: `${progress.progress}%` }}
                   />
                 </div>
-                <p className="text-sm text-blue-200 text-center">
-                  {progress.isComplete ? 'Upload complete!' : `Uploading... ${Math.round(progress.progress)}%`}
-                </p>
+                <div className="text-sm text-center space-y-1">
+                  {progress.isComplete ? (
+                    <>
+                      <p className="text-emerald-400">Upload complete!</p>
+                      {progress.fileName && (
+                        <p className="text-blue-200/80">Successfully uploaded {progress.fileName}</p>
+                      )}
+                    </>
+                  ) : (
+                    <p className="text-blue-200">
+                      {progress.status === 'preparing' ? (
+                        <>Preparing {progress.fileName} for upload...</>
+                      ) : (
+                        <>Uploading{progress.fileName ? ` ${progress.fileName}` : ''}... {Math.round(progress.progress)}%</>
+                      )}
+                    </p>
+                  )}
+                </div>
               </div>
             ) : (
               <div
