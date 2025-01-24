@@ -35,9 +35,14 @@ function populate_metadata(yours.token, modules: set<name>): map<text, gtv> {
   val pfp = pfp @? { token };
   if (pfp == null) return metadata;
 
-  val model = model @? { pfp } ( .url );
-  if (model != null) {
-    metadata.put("model", model.to_gtv());
+  val attached_models = model @* { pfp } ( .domain, .url );
+  if (attached_models.size() > 0) {
+    val models = map<name, text>();
+    for (model in attached_models) {
+      models.put(model.domain, model.url);
+    }
+
+    metadata.put("models", models.to_gtv_pretty());
   }
 
   return metadata;

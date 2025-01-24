@@ -23,7 +23,6 @@ struct pfp_dto {
   name: text;
   description: text;
   image: text;
-  model: text?;
 }
 
 function _pfp_dto(pfp) {
@@ -34,7 +33,6 @@ function _pfp_dto(pfp) {
     uid = pfp.token.uid,
     name = pfp.token.name,
     description = pfp.description,
-    image = pfp.image,
-    model = model @? { pfp } ( .url )
+    image = pfp.image
   );
 }

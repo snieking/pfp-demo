@@ -5,7 +5,7 @@ entity pfp {
 }
 
 entity model {
-  key pfp;
+  key pfp, domain: name;
   url: text;
 }
 

@@ -1,35 +1,8 @@
 import { useChromia } from '@/lib/chromia-connect/chromia-context';
 import { noopAuthenticator, nop, op } from '@chromia/ft4';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { BaseToken, FishingRod, Pfp } from './types';
+import { BaseToken, Pfp, TokenMetadata } from './types';
 import { convertIpfsToGatewayUrl } from '@/lib/utils';
-
-export function useEquippedPfp() {
-  const { chromiaSession, chromiaClient, authStatus } = useChromia();
-
-  return useQuery({
-    queryKey: ['get_equipped_pfp'],
-    queryFn: async () => {
-      if (!chromiaClient || !chromiaSession) {
-        throw new Error('Not connected to Chromia');
-      }
-
-      const pfp = await chromiaSession.query<Pfp>('pfps.get_equipped', {
-        account_id: chromiaSession.account.id,
-      });
-
-      console.log(`equipped for account ${chromiaSession.account.id.toString('hex')}:`, pfp);
-
-      if (!pfp) return null;
-
-      return {
-        ...pfp,
-        image: convertIpfsToGatewayUrl(pfp.image)
-      };
-    },
-    enabled: Boolean(chromiaClient) && Boolean(chromiaSession) && authStatus === 'connected',
-  });
-}
 
 export function useAllPfps() {
   const { chromiaSession, chromiaClient, authStatus } = useChromia();
@@ -41,16 +14,54 @@ export function useAllPfps() {
         throw new Error('Not connected to Chromia');
       }
 
+      try {
+
       const avatars = await chromiaSession.query<Pfp[]>('pfps.get_all', {
         account_id: chromiaSession.account.id,
       });
 
-      return avatars.map(avatar => ({
-        ...avatar,
-        image: convertIpfsToGatewayUrl(avatar.image)
-      }));
+      // Fetch metadata for each token
+      const tokensWithMetadata = await Promise.all(
+        avatars.map(async (token) => {
+          const metadata = await chromiaSession.query<TokenMetadata>('yours.metadata_by_uid', {
+            uid: token.uid,
+          });
+
+          return {
+            ...token,
+            image: convertIpfsToGatewayUrl(token.image),
+            properties: metadata?.properties || {}
+          };
+        })
+      );
+
+      return tokensWithMetadata;
+    } catch (error) {
+      console.error('Error fetching tokens with metadata:', error);
+      throw error;
+    }
     },
     enabled: Boolean(chromiaClient) && Boolean(chromiaSession) && authStatus === 'connected',
+  });
+}
+
+export function useTokenMetadata(uid: Buffer | undefined) {
+  const { chromiaSession, chromiaClient } = useChromia();
+
+  return useQuery({
+    queryKey: ['token_metadata', uid?.toString('hex')],
+    queryFn: async () => {
+      if (!chromiaClient || !chromiaSession || !uid) {
+        throw new Error('Not connected to Chromia or no token UID provided');
+      }
+
+      const metadata = await chromiaSession.query<TokenMetadata>('yours.metadata_by_uid', {
+        uid: uid,
+      });
+
+      return metadata;
+    },
+    enabled: Boolean(chromiaClient) && Boolean(chromiaSession) && Boolean(uid),
   });
 }
 
@@ -59,7 +70,7 @@ export function useAttachModel() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ token, modelUrl }: { token: Pfp, modelUrl: string }) => {
+    mutationFn: async ({ token, domain, modelUrl }: { token: Pfp, domain: string, modelUrl: string }) => {
       if (!chromiaClient || !chromiaSession) {
         throw new Error('Not connected to Chromia');
       }
@@ -67,6 +78,7 @@ export function useAttachModel() {
       await chromiaSession.transactionBuilder()
         .add(op('pfps.attach_model',
           token.uid,
+          domain,
           modelUrl,
         ), { authenticator: noopAuthenticator })
         .add(nop())
@@ -101,67 +113,4 @@ export function useAllFishingRods() {
   });
 }
 
-export type InventoryItem = BaseToken & {
-  amount: number;
-}
 
-export type Equipment = BaseToken & {
-  slot: string;
-  weight: number;
-  description: string;
-}
-
-export type Armor = Equipment & {
-  defense: number;
-}
-
-export type Weapon = Equipment & {
-  damage: number;
-}
-
-export function useEquipments(slot: string = 'all') {
-  const { chromiaSession, chromiaClient, authStatus } = useChromia();
-
-  return useQuery({
-    queryKey: ['armor', slot],
-    queryFn: async () => {
-      if (!chromiaClient || !chromiaSession) {
-        throw new Error('Not connected to Chromia');
-      }
-
-      const armor = await chromiaSession.query<Armor[]>('equipments.get_all', {
-        account_id: chromiaSession.account.id,
-        slot
-      });
-
-      return armor.map(piece => ({
-        ...piece,
-        image: convertIpfsToGatewayUrl(piece.image)
-      }));
-    },
-    enabled: Boolean(chromiaClient) && Boolean(chromiaSession) && authStatus === 'connected',
-  });
-}
-
-export function useWeapons() {
-  const { chromiaSession, chromiaClient, authStatus } = useChromia();
-
-  return useQuery({
-    queryKey: ['weapons'],
-    queryFn: async () => {
-      if (!chromiaClient || !chromiaSession) {
-        throw new Error('Not connected to Chromia');
-      }
-
-      const weapons = await chromiaSession.query<Weapon[]>('equipments.get_weapon', {
-        account_id: chromiaSession.account.id
-      });
-
-      return weapons.map(weapon => ({
-        ...weapon,
-        image: convertIpfsToGatewayUrl(weapon.image)
-      }));
-    },
-    enabled: Boolean(chromiaClient) && Boolean(chromiaSession) && authStatus === 'connected',
-  });
-}

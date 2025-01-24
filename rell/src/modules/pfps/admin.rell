@@ -1,4 +1,4 @@
-operation attach_model(uid: byte_array, url: text) {
+operation attach_model(uid: byte_array, domain: name,url: text) {
   val token = require(
     yours.get_token_by_uid(uid),
     "Token not found %s".format(uid)
@@ -10,6 +10,6 @@ operation attach_model(uid: byte_array, url: text) {
     "Token is not a PFP %s".format(uid)
   );
 
-  delete model @? { pfp };
-  create model ( pfp, url );
+  delete model @? { pfp, domain };
+  create model ( pfp, domain, url );
 }
