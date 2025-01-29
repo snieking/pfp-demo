@@ -65,7 +65,7 @@ export function PfpCard(token: Pfp) {
         throw new Error("Please upload a valid GLB file");
       }
 
-      setProgress({
+      setUploadProgress({
         progress: 0,
         isComplete: false,
         fileName: file.name,
@@ -75,21 +75,19 @@ export function PfpCard(token: Pfp) {
       const filehub = new Filehub(megahubConfig as FilehubSettings);
 
       filehub.on('onProgress', async (progress: number, status: string) => {
-        setProgress({
-          fileHash: fsFile.hash.toString('hex'),
-          fileName: file.name,
+        setUploadProgress({
           progress: clamp(progress, 0, 100),
           isComplete: progress >= 100,
+          fileName: file.name,
           status: 'uploading'
         });
       });
 
       filehub.on('onFileStored', async (fileHash: Buffer) => {
-        setProgress({
-          fileHash: fileHash.toString('hex'),
-          fileName: file.name,
+        setUploadProgress({
           progress: 100,
           isComplete: true,
+          fileName: file.name,
           status: 'complete'
         });
       });
@@ -98,13 +96,13 @@ export function PfpCard(token: Pfp) {
       const fileData = Buffer.from(fileBuffer);
       const fsFile = FsFile.fromData(fileData, { "Content-Type": "application/octet-stream" });
 
-      setProgress({
-        fileHash: fsFile.hash.toString('hex'),
-        fileName: file.name,
+      setUploadProgress({
         progress: 0,
         isComplete: false,
+        fileName: file.name,
         status: 'uploading'
       });
+
       await filehub.storeFile(megahubSession, fsFile);
       
       const url = prepareFileUrl(fsFile);
@@ -115,15 +113,10 @@ export function PfpCard(token: Pfp) {
       setShowUploadModal(false);
       disconnectFromMegahub();
 
-      setProgress({
-        fileHash: undefined,
-        fileName: undefined,
-        progress: 0,
-        isComplete: false
-      });
+      setUploadProgress(undefined);
     } catch (error) {
       console.error("Failed to handle file:", error);
-      setProgress({ progress: 0, isComplete: false });
+      setUploadProgress(undefined);
     }
   };
 
@@ -239,17 +232,41 @@ export function PfpCard(token: Pfp) {
                           className="flex-1 text-left"
                         >
                           <p className="font-medium text-blue-100">{domain}</p>
-                          <p className="text-sm text-blue-300 truncate">
-                            <a 
-                              href={models[domain]} 
-                              target="_blank" 
-                              rel="noopener noreferrer"
-                              className="hover:text-blue-200"
+                          <div className="flex items-center gap-2">
+                            <p className="text-sm text-blue-300 truncate">
+                              <a 
+                                href={models[domain]} 
+                                target="_blank" 
+                                rel="noopener noreferrer"
+                                className="hover:text-blue-200"
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                {truncateHash(models[domain])}
+                              </a>
+                            </p>
+                            <a
+                              href={models[domain]}
+                              download
                               onClick={(e) => e.stopPropagation()}
+                              className="text-blue-300 hover:text-blue-200 p-1 rounded-full hover:bg-blue-900/30"
                             >
-                              {truncateHash(models[domain])}
+                              <svg
+                                xmlns="http://www.w3.org/2000/svg"
+                                width="16"
+                                height="16"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth="2"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                              >
+                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                                <polyline points="7 10 12 15 17 10" />
+                                <line x1="12" y1="15" x2="12" y2="3" />
+                              </svg>
                             </a>
-                          </p>
+                          </div>
                         </button>
                         <Button
                           variant="ghost"
