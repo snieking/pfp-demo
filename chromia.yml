@@ -51,7 +51,7 @@ libs:
     registry: git@github.com:megayours/yours-protocol.git
     path: src/lib/yours
     tagOrBranch: main
-    rid: x"4AE3DD3860C3D7CCCBB56066A582D9B7CF4426D03B72D939BE1AD832F017C975"
+    rid: x"4BBEEDE5DCA79F0E2698EB96047C9961CE294567C0A05E6D31BC0E7B30E2F2B6"
     insecure: false
 
 compile:
